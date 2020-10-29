@@ -1,22 +1,10 @@
 # GUI.py
 import pygame
-from Suduko import solve_board, valid, print_board
+from Suduko import solve_board, valid
 pygame.font.init()
 
-
 class Grid:
-    # board = [
-    #     [7, 8, 0, 4, 0, 0, 1, 2, 0],
-    #     [6, 0, 0, 0, 7, 5, 0, 0, 9],
-    #     [0, 0, 0, 6, 0, 1, 0, 7, 8],
-    #     [0, 0, 7, 0, 4, 0, 2, 6, 0],
-    #     [0, 0, 1, 0, 5, 0, 9, 3, 0],
-    #     [9, 0, 4, 0, 6, 0, 0, 0, 5],
-    #     [0, 7, 0, 3, 0, 0, 0, 1, 2],
-    #     [1, 2, 0, 0, 0, 7, 4, 0, 0],
-    #     [0, 4, 9, 2, 0, 6, 0, 0, 7]
-    # ]
-    
+
     board = [
         [0,0,0,0,0,0,0,0,0],
         [0,0,0,0,0,0,0,0,0],
@@ -42,27 +30,45 @@ class Grid:
         for i in range(self.rows):
              for j in range(self.cols):
                  self.boxes[i][j].value = 0
+                 self.boxes[i][j].fixed = False
         self.update_model()
     
     def update_model(self):
         self.model = [[self.boxes[i][j].value for j in range(self.cols)] for i in range(self.rows)]
     
         
-    def assign(self,value,row,col):
+    def assign(self,value,row,col, solved):
         self.boxes[row][col].value = value
+        if solved == False:
+            self.boxes[row][col].fixed = True
         
 
     def complete_solve(self):
+        valid_setup = True
         self.update_model()
-        solve_board(self.model)
-        print(self.model)
-        print("test2")
+        saved_board = self.model
         for i in range(self.rows):
-             for j in range(self.cols):
-                 self.assign(self.model[i][j], i, j)
+            for j in range(self.cols):
+                if self.boxes[i][j].fixed == True:
+                    if not valid(self.model,self.boxes[i][j].value, (i,j)):
+                        valid_setup = False
+
+        if valid_setup == True:
+            if solve_board(self.model) == True:  
+                print(self.model)
+                print("Solved")
+                for i in range(self.rows):
+                    for j in range(self.cols):
+                        self.assign(self.model[i][j], i, j, True)
+                return True
+            else:
+                self.model = saved_board
+                return False
+
+                         
 
         
-    def draw(self, win):
+    def draw(self, win,solved):
         gap = self.width / 9
         for i in range(self.rows+1):
             if i%3==0 and i!=0:
@@ -74,7 +80,7 @@ class Grid:
             
         for i in range(self.rows):
             for j in range(self.cols):
-                    self.boxes[i][j].draw(win)
+                    self.boxes[i][j].draw(win,solved)
                 
     def select(self, row, col):
         for i in range(self.rows):
@@ -102,60 +108,79 @@ class Box:
         self.width = width
         self.height = height
         self.selected = False
+        self.input = True
+        self.fixed = False
     
-    def draw(self,win):
+    def draw(self,win,solved):
+        if solved == False or self.fixed == True:
+            colour = (255,0,0)
+        else:
+            colour = (0,0,255)
         fnt = pygame.font.SysFont("comicsanc",40)
         gap = self.width/9
         x= self.col*gap
         y = self.row*gap
         
-        text = fnt.render(str(self.value), 1, (128,0,0))
+        text = fnt.render(str(self.value), 1, colour)
         if self.value != 0:
             win.blit (text,(x+(gap/2-text.get_width()/2), 60+y+(gap/2-text.get_height()/2)))
         
         if self.selected:
-            pygame.draw.rect(win,(255,0,0),(x,y+60,gap,gap),3)
+            pygame.draw.rect(win,(0,255,0),(x,y+60,gap,gap),3)
         
     def set(self,val):
         self.value = val
 
-def redraw_window(win, board, solved):
-    if not solved:
+def redraw_window(win, board, solved, valid):
+    if not valid:
         win.fill((255,255,255))
+        fnt = pygame.font.SysFont("comicsans", 60)
+        text = fnt.render("INVALID GRID:", 1, (255,0,0))
+        win.blit(text, (0, 10))
         fnt = pygame.font.SysFont("comicsans", 30)
-        text = fnt.render("Please Enter Starting Numbers:", 1, (0,0,0))
-        win.blit(text, (0, 20))
-        
-        start = fnt.render("Solve:", 1, (0,0,255))
-        win.blit(start, (460, 20))
-        pygame.draw.rect(win,(0,0,255),(450,10,80,40),3)
-        
-        clear = fnt.render("Clear:", 1, (255,0,0))
-        win.blit(clear, (360, 20))
-        pygame.draw.rect(win,(255,0,0),(350,10,80,40),3)
-        board.draw(win)
-    if solved:
-        win.fill((255,255,255))
-        fnt = pygame.font.SysFont("comicsans", 30)
-        text = fnt.render("Solved Grid:", 1, (0,0,0))
-        win.blit(text, (0, 20))
-
         clear = fnt.render("Clear:", 1, (255,0,0))
         win.blit(clear, (360, 20))
         pygame.draw.rect(win,(255,0,0),(350,10,80,40),3)
         
-        board.draw(win)
+        board.draw(win,solved)
+    else:
+        if not solved:
+            win.fill((255,255,255))
+            fnt = pygame.font.SysFont("comicsans", 30)
+            text = fnt.render("Please Enter Starting Numbers:", 1, (0,0,0))
+            win.blit(text, (0, 20))
+            
+            start = fnt.render("Solve:", 1, (0,0,255))
+            win.blit(start, (460, 20))
+            pygame.draw.rect(win,(0,0,255),(450,10,80,40),3)
+            
+            clear = fnt.render("Clear:", 1, (255,0,0))
+            win.blit(clear, (360, 20))
+            pygame.draw.rect(win,(255,0,0),(350,10,80,40),3)
+            board.draw(win, solved)
+        if solved:
+            win.fill((255,255,255))
+            fnt = pygame.font.SysFont("comicsans", 30)
+            text = fnt.render("Solved Grid:", 1, (0,0,0))
+            win.blit(text, (0, 20))
+    
+            clear = fnt.render("Clear:", 1, (255,0,0))
+            win.blit(clear, (360, 20))
+            pygame.draw.rect(win,(255,0,0),(350,10,80,40),3)
+            
+            board.draw(win,solved)
         
 
 
 def main():
     win = pygame.display.set_mode((540,600))
-    pygame.display.set_caption("Sudoku")
+    pygame.display.set_caption("Sudoku Solver")
     board = Grid(9, 9, 540, 600)
     solved = False
     pause = False
     key = None
     clicked = None
+    valid = True
   
     run = True
 
@@ -166,9 +191,14 @@ def main():
             
             if solved == True:
                 if not pause:
-                    board.complete_solve()
-                    board.select(0,0)
-                    pause=True
+                    if board.complete_solve() == True:
+                        board.select(0,0)
+                        pause=True
+                    else:
+                        print("invalid")
+                        pause = True
+                        valid = False
+                        
                 else:
                     if event.type == pygame.MOUSEBUTTONDOWN:
                         pos = pygame.mouse.get_pos()
@@ -176,6 +206,7 @@ def main():
                             board.clear_board()
                             solved = False
                             pause = False
+                            valid = True
                     
 
             else:
@@ -212,11 +243,13 @@ def main():
                         key = 8
                     if event.key == pygame.K_9:
                         key = 9
+                    if event.key == pygame.K_DELETE or event.key == pygame.K_0:
+                        key = 0
 
                     if key != None and clicked != None:
-                        board.assign(key, clicked[0],clicked[1])
+                        board.assign(key, clicked[0],clicked[1], solved)
         
-        redraw_window(win, board, solved)
+        redraw_window(win, board, solved, valid)
         pygame.display.update()
 
 
